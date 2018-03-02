@@ -20,12 +20,12 @@ input_file: 	a file containing DNA sequences in FASTA format
 
 OPTIONS:
 
--b  	 	a background data file in FASTA format(default=directly produced by the program itself)
+-b  	: 	a background data file in FASTA format(default=directly produced by the program itself)
 
--m	  	minimum size of binding sites to find(default=5)
+-m	  : 	minimum size of binding sites to find(default=5)
 
--M		  Maximum size of binding sites to find(default=10)
+-M		:  Maximum size of binding sites to find(default=10)
 
--n		  Number of motifs to find(default=10)
+-n		:  Number of motifs to find(default=10)
 
--t		  number of threads to call(default=6 i.e. =M-m+1)
+-t		:  number of threads to call(default=6 i.e. =M-m+1)
