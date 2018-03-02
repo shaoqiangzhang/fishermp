@@ -14,12 +14,13 @@ For example, if given a fasta file, you can run the program with the following c
 ******
 USAGE:
 ******
-fishermp <dataset> [OPTIONS]  > OutputFile
+./fishermp  input_file [OPTIONS]  > Output_File
 
-<dataset>	file containing DNA sequences in FASTA format
+input_file: 	a file containing DNA sequences in FASTA format
 
 OPTIONS:
--b		a background data file in FASTA format(default=directly produced by the program itself)
+
+-b	\t	a background data file in FASTA format(default=directly produced by the program itself)
 
 -m		minimum size of binding sites to find(default=5)
 
