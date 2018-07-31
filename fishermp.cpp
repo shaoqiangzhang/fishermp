@@ -3,7 +3,7 @@ FisherMP: Motif Prediction using Fisher's exact test with openMP Parallel design
 Author: Shaoqiang Zhang
 Email: zhangshaoqiang@tjnu.edu.cn
 Tianjin Normal University, Tianjin 300387, China
-Date: 2018-02-27
+Date: July-31,2018
 ==================================================================================*/
 #include<map>
 #include<string>
@@ -15,7 +15,7 @@ Date: 2018-02-27
 #include<cctype>//for the "toupper" function
 #include<ctime>
 #include<cstdlib>
-#include<algorithm>//for the "random_shuffle" functions
+#include<algorithm>
 #include<numeric>//for the "accumulate" function
 #include<omp.h> //openMP
 #include<iomanip>
@@ -35,11 +35,15 @@ typedef pair<vector<string>,double> VectDoublePair;
 typedef pair<vector<string>,int> strVectIntPair;
 typedef map<vector<string>, int> VectIntHash;
 typedef map<vector<string>,double> strVectDoubleHash;
+typedef pair<pair<int,int>,double> iidPAIR;//~~~~~~~731
+typedef map<vector<string>,vector<int> > vectstrTOvectintHash;//*****************731
+
 //===================================================================================
 string complementary(vector<char> charVect);//complementary DNA strand of a sequence vector
 string strReverseComplement(string str);
 double log_combin(int n, int m);
 vector<int> vector_merge_unique(vector<int> v1, vector<int> v2);
+vector<int> vector_intersection(vector<int> v1, vector<int> v2);
 struct CmpByValue {
 	bool operator()(const sdPAIR& lhs, const sdPAIR& rhs) {
 		return lhs.second < rhs.second;
@@ -50,6 +54,12 @@ struct CmpVDPairByValue {
 		return lhs.second < rhs.second;
 	}
 };
+struct CmpIIDPairByValue {
+	bool operator()(const iidPAIR& lhs, const iidPAIR& rhs) {
+		return lhs.second < rhs.second;
+	}
+};
+int existSubstring(string str1, string str2);
 //===================================================================================
 int main(int argc, const char** argv){
 	int MinSiteSize=5;//motif min length
@@ -68,7 +78,7 @@ int main(int argc, const char** argv){
 		cout<<"-M\t\tMaximum size of binding sites to find(default="<<MaxSiteSize<<")\n";
 		cout<<"-n\t\tNumber of motifs to find(default="<<MotifNumber<<")\n";
 		cout<<"-t\t\tnumber of threads to call(default="<<ThreadNum<<" i.e. =M-m+1)\n";
-		cout<<"\n*******\nDesigned by Shaoqiang Zhang (zhangshaoqiang@tjnu.edu.cn), Feb/27/2018\n\n";
+		cout<<"\n*******\nDesigned by Shaoqiang Zhang (zhangshaoqiang@tjnu.edu.cn), July/31/2018\n\n";
 		cout<<"For example: \n"<<argv[0]<<" Klf1.fna -b Klf1.negative.seq -m 5 -M 9 -n 5 -t 10  > Klf1.motifs\n\n";
 		cout<<endl;
 		exit(1);
@@ -268,9 +278,9 @@ int main(int argc, const char** argv){
 	//read all k-mers into two maps for the input sequence set and the background sequence set
 	vecthash kmerVectMap;//store k-mer to a hash with vector values
 	vecthash backKmerVectMap;
-	vhashvect kmervectmapvector;//******************************
+	vhashvect kmervectmapvector;
 	vhashvect kvector_private;
-	vhashvect backkmervectmapvector;//******************************
+	vhashvect backkmervectmapvector;
 	vhashvect backkvector_private;
 	
 	int kRange=MaxSiteSize-MinSiteSize+1;
@@ -432,10 +442,18 @@ int main(int argc, const char** argv){
 	
 	sort(sdVector.begin(), sdVector.end(), CmpByValue());//sort k-mer with p-value from small to large
 	
-	/*for (int i=0;i<100;i++){
-		cout<<sdVector[i].first<<"\t"<<sdVector[i].second<<"\n";
+	int seed_num=0;
+	for (int i=0;i<sdVector.size();i++){
+		if(sdVector[i].second<0.0000000001){
+			//cout<<sdVector[i].first<<"\t"<<sdVector[i].second<<"\n";
+			seed_num++;
+		}
+	}
+	/*if(seed_num<100){
+		if(sdVector.size()>100){
+			seed_num=100;
+		}
 	}*/
-	
 	
 //===The following is to form first-hand motif by computing difference between kmers======
 
@@ -443,7 +461,7 @@ int main(int argc, const char** argv){
 	int sdv=sdVector.size();
 	hashmap used_kmer_hash;//define the kmers that have been used in the front motifs
 	
-	for (int i=0;i<100;i++){
+	for (int i=0;i<seed_num;i++){
 		string currKmer=sdVector[i].first;
 		if(used_kmer_hash.count(currKmer)<1){
 			vector<string> oneMotifKmerVect;
@@ -466,11 +484,17 @@ int main(int argc, const char** argv){
 
 			for(int j=i+1;j<sdv;j++){//find exactly one position different with currKmer
 				string nextKmer=sdVector[j].first;
+				vector<char> nextkmervect;
+				nextkmervect.resize(strLength);
+				nextkmervect.assign(nextKmer.begin(),nextKmer.end());
+				string nextRCkmer=complementary(nextkmervect);
+				if(existSubstring(currKmer,nextKmer)>0){
+					used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
+				}
+				if(existSubstring(currKmer,nextRCkmer)>0){
+					used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
+				}
 				if(strLength==nextKmer.size()){
-					vector<char> nextkmervect;
-					nextkmervect.resize(strLength);
-					nextkmervect.assign(nextKmer.begin(),nextKmer.end());
-					string nextRCkmer=complementary(nextkmervect);
 					vector<char> rckmervect;
 					rckmervect.clear();
 					rckmervect.resize(strLength);
@@ -496,13 +520,13 @@ int main(int argc, const char** argv){
 						int total_diff_positions=accumulate(identical_posit_vector.begin(), identical_posit_vector.end(),0);//sum of vector's elements
 						if(strLength>6 && total_diff_positions<=floor(static_cast<double>(strLength)*0.3)){
 							oneMotifKmerVect.push_back(nextKmer);
-							if(j<100){
+							if(j<seed_num){
 								used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
 							}
 							bool_posit_vect[diff_pos]=1;
 						}else if(strLength<=6 && total_diff_positions==1){
 							oneMotifKmerVect.push_back(nextKmer);
-							if(j<100){
+							if(j<seed_num){
 								used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
 							}
 						}else{
@@ -514,13 +538,13 @@ int main(int argc, const char** argv){
 						int total_diff_positions=accumulate(identical_posit_vector.begin(),identical_posit_vector.end(),0);//sum of vector's elements
 						if(strLength>6 && total_diff_positions<=floor(static_cast<double>(strLength)*0.3)){
 							oneMotifKmerVect.push_back(nextRCkmer);
-							if(j<100){
+							if(j<seed_num){
 								used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
 							}
 							bool_posit_vect[rc_diff_pos]=1;
 						}else if(strLength<=6 && total_diff_positions==1){
 							oneMotifKmerVect.push_back(nextRCkmer);
-							if(j<100){
+							if(j<seed_num){
 								used_kmer_hash.insert(hashmap::value_type(nextKmer,1));
 							}
 						}else{
@@ -596,7 +620,8 @@ int main(int argc, const char** argv){
 
 //=================end of first-hand motif forming ==============================
 
-	/*for(int i=0;i<motif_matrix.size();i++){
+	/*
+	for(int i=0;i<motif_matrix.size();i++){
 		for(int j=0;j<motif_matrix[i].size();j++){
 			cout<<motif_matrix[i][j]<<"\t";
 		}
@@ -606,6 +631,9 @@ int main(int argc, const char** argv){
 	//---refine motifs by calculating new p-values--------------------------------
 	vector<VectDoublePair> motifpvalue_pair_vect;
 	// store all motifs and their p-values into a vector of (motif,p-value) pairs
+	
+	vectstrTOvectintHash motif_foreseq_labelvect_hash;//motif seqs to foreground seq labels********731
+	vectstrTOvectintHash motif_backseq_labelvect_hash;//motif seqs to background seq labels********731
 	
 	strVectDoubleHash motif_pvalue_hash;
 	VectIntHash strvect_ma_hash;//store motif and ma
@@ -623,6 +651,10 @@ int main(int argc, const char** argv){
 		string rc_string=strReverseComplement(first_kmer);
 		vecthash::iterator bk;
 		vector<int> mergedBackLineVect;
+		
+		vector<int> final_mergedLineLabelVect;//******************731
+		vector<int> final_mergedBackLineVect;//***************731
+		
 		mergedBackLineVect.clear();
 		if(backKmerVectMap.count(first_kmer)>0){
 			bk=backKmerVectMap.find(first_kmer);
@@ -661,6 +693,8 @@ int main(int argc, const char** argv){
 				merged_Pvalue=p_value;
 				ma=a;
 				mc=c;
+				final_mergedBackLineVect=mergedBackLineVect;//***************************731
+				final_mergedLineLabelVect=mergedLineLabelVect;//*************************731
 			}else{
 				break;
 			}
@@ -668,6 +702,10 @@ int main(int argc, const char** argv){
 		motif_pvalue_hash.insert(strVectDoubleHash::value_type(oneMotifKmerVect, merged_Pvalue));
 		strvect_ma_hash.insert(VectIntHash::value_type(oneMotifKmerVect, ma));
 		strvect_mc_hash.insert(VectIntHash::value_type(oneMotifKmerVect, mc));
+		
+		motif_foreseq_labelvect_hash.insert(vectstrTOvectintHash::value_type(oneMotifKmerVect,final_mergedLineLabelVect));//*************************731
+		motif_backseq_labelvect_hash.insert(vectstrTOvectintHash::value_type(oneMotifKmerVect,final_mergedBackLineVect));//*************************731
+
 	}
 	
 	for(strVectDoubleHash::const_iterator svp=motif_pvalue_hash.begin();svp!=motif_pvalue_hash.end();svp++){
@@ -678,7 +716,53 @@ int main(int argc, const char** argv){
 	sort(motifpvalue_pair_vect.begin(), motifpvalue_pair_vect.end(), CmpVDPairByValue());
 	//sort motifs with p-value from small to large
 	
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	vector<iidPAIR> twomotifs_pvalue_pairvect;
+	
+	for(int mt=0;mt<MotifNumber;mt++){
+		vector<string> firstMotifKmerVect=motifpvalue_pair_vect[mt].first;
+		vectstrTOvectintHash::iterator fml=motif_foreseq_labelvect_hash.find(firstMotifKmerVect);
+		vector<int> firstmotifforelabelvect=fml->second;
+		vectstrTOvectintHash::iterator bml=motif_backseq_labelvect_hash.find(firstMotifKmerVect);
+		vector<int> firstmotifbacklabelvect=bml->second;
+		
+		for(int mk=mt+1;mk<MotifNumber;mk++){
+			vector<string> secondMotifKmerVect=motifpvalue_pair_vect[mk].first;
+			vectstrTOvectintHash::iterator fmk=motif_foreseq_labelvect_hash.find(secondMotifKmerVect);
+			vector<int> secondmotifforelabelvect=fmk->second;
+			vectstrTOvectintHash::iterator bmk=motif_backseq_labelvect_hash.find(secondMotifKmerVect);
+			vector<int> secondmotifbacklabelvect=bmk->second;
+			
+			vector<int> a_intersect=vector_intersection(firstmotifforelabelvect,secondmotifforelabelvect);
+			vector<int> c_intersect=vector_intersection(firstmotifbacklabelvect,secondmotifbacklabelvect);
+			
+			a=a_intersect.size();
+			b=line_count-a;
+			c=c_intersect.size();
+			d=back_line_count-c;
+			p_value=exp(log_combin(a+c, a)+log_combin(b+d,b)-log_combin(a+b+c+d,a+b));
+			//cout<<mt+1<<" "<<mk+1<<" "<<a<<" "<<c<<" "<<p_value<<endl;
+			pair<int,int> motifpair(mt+1,mk+1);
+			iidPAIR iidp=make_pair(motifpair,p_value);
+			twomotifs_pvalue_pairvect.push_back(iidp);
+		}
+	}
+	sort(twomotifs_pvalue_pairvect.begin(),twomotifs_pvalue_pairvect.end(), CmpIIDPairByValue());
+	//sort each pair of motifs with p-value from small to large
+	
+	cout<<"The ranking of motif pairs with P-values:\n";
+	for(int pp=0;pp<twomotifs_pvalue_pairvect.size();pp++){
+		pair<int,int> motifpair=twomotifs_pvalue_pairvect[pp].first;
+		double pairpvalue=twomotifs_pvalue_pairvect[pp].second;
+		cout<<pp+1<<":\t"<<"<MOTIF "<<motifpair.first<<",MOTIF "<<motifpair.second<<">\tCombined P-value: "<<pairpvalue<<"\n";
+	}
+	cout<<"\n"<<endl;
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	
+	
+	
 //=========================================================================================================
+
 	for(int mm=0;mm<MotifNumber;mm++)
 	{//----output the top number of motifs-------------------------------------
 		vector<string> oneMotifKmerVect=motifpvalue_pair_vect[mm].first;
@@ -686,7 +770,7 @@ int main(int argc, const char** argv){
 		int ma=via->second;
 		VectIntHash::iterator vic=strvect_mc_hash.find(oneMotifKmerVect);
 		int mc=vic->second;
-		cout<<"\nMOTIF TOP "<<mm+1<<" details:\n";
+		cout<<"\nMOTIF No. "<<mm+1<<" details:\n";
 		cout<<"Postives    Negatives    P-value\n";
 		cout<< ma<<"/"<<line_count<<"    "<<mc<<"/"<<back_line_count<<"    "<<motifpvalue_pair_vect[mm].second<<"\n";
 		cout<<"Enriched Matching Words:\n";
@@ -776,7 +860,7 @@ int main(int argc, const char** argv){
 			}
 			cout<<oneword<<"    "<<rc_word<<"    "<<aa<<"/"<<line_count<<"    "<<cc<<"/"<<back_line_count<<"    "<<p_value<<"\n";
 		}
-		cout<<"These sites belong to the following sequence numbers: ";
+		/*cout<<"These sites belong to the following sequence numbers: ";
 		sort(seqNoVect.begin(),seqNoVect.end());
 		seqNoVect.erase(unique(seqNoVect.begin(), seqNoVect.end()), seqNoVect.end());
 		for (int i=0;i<seqNoVect.size();i++){
@@ -786,7 +870,7 @@ int main(int argc, const char** argv){
 			cout<<seqNoVect[i]+1<<" ";
 
 		}
-		cout<<endl;
+		cout<<endl;*/
 		cout<<"The total number of sites: "<<totalaa<<"\nPosition Weight Matrix\n";
 		vector<double> pwm_line;
 		double pwm_score;
@@ -796,6 +880,7 @@ int main(int argc, const char** argv){
 			for(int i=0;i<mtflen;i++){
 				if(PFM[dna][i]>0){
 					pwm_score=log(static_cast<double>(PFM[dna][i])/(static_cast<double>(totalaa)*DNApercent[dna]))/log(2);
+					if(pwm_score>1.95) pwm_score=2.0;
 					pwm_line.push_back(pwm_score);
 					cout<<setprecision(4)<<" "<<pwm_score;
 				}else{
@@ -920,6 +1005,54 @@ vector<int> vector_merge_unique(vector<int> v1, vector<int> v2)
 	sort(v3.begin(),v3.end());
 	v3.erase(unique(v3.begin(), v3.end()), v3.end());
 	return v3;
+}
+
+vector<int> vector_intersection(vector<int> v1, vector<int> v2)
+{//the intersection of two sets
+	vector<int> v3;
+	for(int i=0;i<v1.size();i++){
+		for(int j=0;j<v2.size();j++){
+			if(v1[i]==v2[j]){
+				v3.push_back(v1[i]);
+				break;
+			}
+		}
+	}
+	return v3;
+}
+
+int existSubstring(string str1, string str2)
+{
+	string shortstrv;
+	string longstrv;
+	int YorN=0;
+	if (str1.length() <= str2.length()){
+		shortstrv = str1;
+		longstrv = str2;
+	}else{
+		shortstrv = str2;
+		longstrv = str1;
+	}
+	int slen=shortstrv.length();
+	int llen=longstrv.length();
+	if(slen<(llen/2)){
+		YorN=0;
+	}else{
+		string::size_type idx=longstrv.find(shortstrv);
+		if(idx!= string::npos ){
+			YorN=1;
+		}else{
+			for(int pp=1;pp<=floor(static_cast<double>(slen)*0.3);pp++){
+				if(longstrv.compare(0,slen-pp,shortstrv,pp, slen-pp )==0){
+					YorN=1;
+				}
+				if(longstrv.compare(llen-slen+pp, slen-pp, shortstrv, 0, slen-pp)==0){
+					YorN=1;
+				}
+			}
+		}
+	}
+	return YorN;
 }
 
 //===================end functions========================================
