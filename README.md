@@ -17,15 +17,16 @@ If your computer is Linux based on X86_64, you can directly run the "./fishermp"
 <dataset>	file containing DNA sequences in FASTA format
 
 OPTIONS:
--b		a background data file in FASTA format(default=directly produced by the program itself)
 
--m		minimum size of binding sites to find(default=5)
+-b          a background data file in FASTA format(default=directly produced by the program itself)
 
--M		Maximum size of binding sites to find(default=10)
+-m		    minimum size of binding sites to find(default=5)
 
--n		Number of motifs to find(default=10)
+-M		    Maximum size of binding sites to find(default=10)
 
--t		number of threads to call(default=6 i.e. =M-m+1)
+-n		    Number of motifs to find(default=10)
+
+-t		    number of threads to call(default=6 i.e. =M-m+1)
 
 *******************************************
 
