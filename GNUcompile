@@ -1,0 +1,7 @@
+#!/bin/sh
+
+GCC=g++
+
+echo $GCC '-fopenmp fishermp.cpp -o fishermp'
+$GCC -fopenmp fishermp.cpp -o fishermp
+
