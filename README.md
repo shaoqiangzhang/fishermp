@@ -1,39 +1,53 @@
-# fishermp
+# FisherMP
+
 FisherMP: Motif Prediction using Fisher's exact test with openMP Parallel design
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+https://github.com/shaoqiangzhang/fishermp
 
-Option1: You can downlad the zip file, unzip it in your Linux computer, and run GNUcompile to compile the program. 
+vesion: 1.1 (Dec 10, 2018) 
+ 
+If FisherMP is having problems, call Shaoqiang Zhang( zhangshaoqiang@tjnu.edu.cn)
+ 
+===============================================
+Installation:
 
-Option2: You can download the cpp file "fishermp.cpp" and directly use to command "g++ -fopenmp fishermp.cpp -o fishermp" to compile it.
+Before compiling the program, please first ensure that 
+your computer has the openMP library (version>=4.0) 
+(http://openmp.org) and GNU compiler (GCC >5.0). 
 
-Before compiling the program, please first ensure that your computer has the openMP library (http://openmp.org) and GNU compiler. 
+Please run "./GNUcompile" to compile the program. 
+or type “g++ -fopenmp fishermp_current.cpp -o fishermp” in the terminal to compile the proram.
 
-If your computer is Linux based on X86_64, you can directly run the "./fishermp" in the terminal.
+If your computer is Linux based on X86_64, 
+you can directly run the executable file "./fishermp" in the terminal.
 
-*******************************************
-                  USAGE:
-*******************************************
-./fishermp <dataset> [OPTIONS]  > OutputFile
+You can can also copy the execuable file "fishermp" to the "$USER/bin" directory. 
 
-<dataset>	file containing DNA sequences in FASTA format
+====================================================
 
-OPTIONS:
+USAGE:
 
--b          a background data file in FASTA format(default=directly produced by the program itself)
+./fishermp <dataset> [optional arguments]  > Output_File
 
--m		    minimum size of binding sites to find(default=5)
+<dataset>				file containing DNA sequences in FASTA format
 
--M		    Maximum size of binding sites to find(default=10)
+[-b <file>]				a background data file in FASTA format (default=directly produced by the program itself)
 
--n		    Number of motifs to find(default=10)
+[-m <min_size>]			minimum motif length (default=5)
 
--t		    number of threads to call(default=6 i.e. =M-m+1)
+[-M <max_size>]			Maximum motif length (default=10)
 
-*******************************************
+[-c <cooperative_size>]	define the number of cooperate motifs(default=2, you can select 1,2,3 for single motif, pair motifs, or triple motifs)
 
-You can run the example to test the prgram: 
+[-n <num>]				Number of motifs to find(default=all possible motifs)
 
-./fishermp Klf1.fna -b Klf1.negative.seq -m 5 -M 9 -n 5 -t 10  > Klf1.motifs
+[-t <threads>]			number of threads to call(default=6 i.e. =M-m+1)
 
-or use the default settings:
+=======================================================
+Example:
 
-./fishermp Klf1.fna > Klf1.motifs
+If you have two fasta files (one is the foreground file, the other is the background file),
+and you want to call 10 threads to compute, the motif lengths are set from 5 to 9, the command is as follows:
+
+./fishermp foregroundfile.fasta -b backgroundfile.fasta -m 5 -M 9 -t 10  > output.file
+
